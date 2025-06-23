@@ -2,7 +2,9 @@ package src;
 
 import javafx.application.Application;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToolBar;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -10,12 +12,15 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.scene.image.Image;
+import javafx.scene.control.ToggleButton;
 
 import java.io.File;
 import java.io.IOException;
 
 public class MapEditor extends Application {
     private TileType selectedTile = TileType.FLOOR;
+    private boolean tokenMode = false;
 
     @Override
     public void start(Stage stage) {
@@ -31,12 +36,43 @@ public class MapEditor extends Application {
         mapGrid.setOnMouseClicked(e -> {
             double adjustedX = (e.getX() - mapGrid.getOffsetX()) / mapGrid.getZoom();
             double adjustedY = (e.getY() - mapGrid.getOffsetY()) / mapGrid.getZoom();
-
             int x = (int) (adjustedX / mapGrid.getTileSize());
             int y = (int) (adjustedY / mapGrid.getTileSize());
 
             if (x >= 0 && x < 20 && y >= 0 && y < 20) {
-                mapGrid.setTile(x, y, selectedTile);
+                if (tokenMode) {
+                    TextInputDialog nameDialog = new TextInputDialog("TokenName");
+                    nameDialog.setTitle("Token Name");
+                    nameDialog.setHeaderText("Enter a name for your token:");
+                    nameDialog.setContentText("Name:");
+
+                    var result = nameDialog.showAndWait();
+                    if (result.isPresent() && !result.get().isBlank()) {
+                        String tokenName = result.get();
+
+                        FileChooser fileChooser = new FileChooser();
+                        fileChooser.setTitle("Select Token Image");
+                        fileChooser.getExtensionFilters().addAll(
+                                new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.gif")
+                        );
+
+                        File file = fileChooser.showOpenDialog(stage);
+                        if (file != null && file.exists()) {
+                            Image tokenImage = new Image(file.toURI().toString());
+
+                            Token token = new Token(tokenName, x, y, tokenImage);
+                            mapGrid.addToken(token);
+                        } else {
+                            Alert alert = new Alert(Alert.AlertType.ERROR);
+                            alert.setTitle("Image Error");
+                            alert.setHeaderText("No image selected");
+                            alert.setContentText("Token image not selected, token not placed.");
+                            alert.showAndWait();
+                        }
+                    }
+                } else {
+                    mapGrid.setTile(x, y, selectedTile);
+                }
             }
         });
 
@@ -77,6 +113,10 @@ public class MapEditor extends Application {
         });
 
         toolbar.getItems().addAll(saveButton, loadButton);
+
+        ToggleButton tokenToggle = new ToggleButton("Token Mode");
+        tokenToggle.setOnAction(e -> tokenMode = tokenToggle.isSelected());
+        toolbar.getItems().add(tokenToggle);
 
         BorderPane root = new BorderPane();
         root.setTop(toolbar);

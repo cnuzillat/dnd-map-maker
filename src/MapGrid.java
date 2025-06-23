@@ -4,12 +4,20 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.input.MouseButton;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.image.Image;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class MapGrid extends Canvas {
     private final int rows = 20;
     private final int cols = 20;
     private final int tileSize = 32;
     private final Tile[][] tiles = new Tile[rows][cols];
+
+    private final List<Token> tokens = new ArrayList<>();
 
     private double zoom = 1.0;
     private double offsetX = 0;
@@ -78,6 +86,20 @@ public class MapGrid extends Canvas {
         return tileSize;
     }
 
+    public void addToken(Token token) {
+        tokens.add(token);
+        draw();
+    }
+
+    public void removeToken(Token token) {
+        tokens.remove(token);
+        draw();
+    }
+
+    public List<Token> getTokens() {
+        return tokens;
+    }
+
     private void draw() {
         GraphicsContext gc = getGraphicsContext2D();
 
@@ -102,6 +124,23 @@ public class MapGrid extends Canvas {
                 gc.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
             }
         }
+        gc.setFont(Font.font("Arial", FontWeight.BOLD, 16));
+        for (Token token : tokens) {
+            double drawX = token.getX() * tileSize;
+            double drawY = token.getY() * tileSize;
+
+            Image img = token.getImage();
+            if (img != null) {
+                gc.drawImage(img, drawX, drawY, tileSize, tileSize);
+            }
+            else {
+                gc.setFill(Color.RED);
+                gc.fillOval(drawX + 4, drawY + 4, tileSize - 8, tileSize - 8);
+                gc.setFill(Color.WHITE);
+                gc.fillText(token.getType().substring(0, 1), drawX + tileSize / 2 - 4, drawY + tileSize / 2 + 6);
+            }
+        }
+
         gc.restore();
     }
 
