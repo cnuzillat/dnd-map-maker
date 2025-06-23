@@ -50,4 +50,17 @@ public class MapGrid extends Canvas {
             }
         }
     }
+
+    public void setTiles(Tile[][] newTiles) {
+        for (int y = 0; y < tiles.length; y++) {
+            for (int x = 0; x < tiles[0].length; x++) {
+                tiles[y][x] = newTiles[y][x];
+            }
+        }
+        draw();
+    }
+
+    public Tile[][] getTiles() {
+        return tiles;
+    }
 }
