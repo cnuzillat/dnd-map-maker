@@ -50,6 +50,38 @@ public class MapEditor extends Application {
                     if (result.isPresent() && !result.get().isBlank()) {
                         String tokenName = result.get();
 
+                        TextInputDialog widthDialog = new TextInputDialog("1");
+                        widthDialog.setTitle("Token Width");
+                        widthDialog.setHeaderText("Enter token width (in tiles):");
+                        widthDialog.setContentText("Width:");
+
+                        var widthResult = widthDialog.showAndWait();
+                        int width = 1;
+                        if (widthResult.isPresent()) {
+                            try {
+                                width = Integer.parseInt(widthResult.get());
+                                if (width < 1) width = 1;
+                            } catch (NumberFormatException e1) {
+                                width = 1;
+                            }
+                        }
+
+                        TextInputDialog heightDialog = new TextInputDialog("1");
+                        heightDialog.setTitle("Token Height");
+                        heightDialog.setHeaderText("Enter token height (in tiles):");
+                        heightDialog.setContentText("Height:");
+
+                        var heightResult = heightDialog.showAndWait();
+                        int height = 1;
+                        if (heightResult.isPresent()) {
+                            try {
+                                height = Integer.parseInt(heightResult.get());
+                                if (height < 1) height = 1;
+                            } catch (NumberFormatException e2) {
+                                height = 1;
+                            }
+                        }
+
                         FileChooser fileChooser = new FileChooser();
                         fileChooser.setTitle("Select Token Image");
                         fileChooser.getExtensionFilters().addAll(
@@ -61,6 +93,8 @@ public class MapEditor extends Application {
                             Image tokenImage = new Image(file.toURI().toString());
 
                             Token token = new Token(tokenName, x, y, tokenImage);
+                            token.setWidth(width);
+                            token.setHeight(height);
                             mapGrid.addToken(token);
                         } else {
                             Alert alert = new Alert(Alert.AlertType.ERROR);

@@ -178,15 +178,18 @@ public class MapGrid extends Canvas {
             double drawX = token.getX() * tileSize;
             double drawY = token.getY() * tileSize;
 
+            double drawWidth = token.getWidth() * tileSize;
+            double drawHeight = token.getHeight() * tileSize;
+
             Image img = token.getImage();
             if (img != null) {
-                gc.drawImage(img, drawX, drawY, tileSize, tileSize);
+                gc.drawImage(img, drawX, drawY, drawWidth, drawHeight);
             }
             else {
                 gc.setFill(Color.RED);
-                gc.fillOval(drawX + 4, drawY + 4, tileSize - 8, tileSize - 8);
+                gc.fillOval(drawX + 4, drawY + 4, drawWidth - 8, drawWidth - 8);
                 gc.setFill(Color.WHITE);
-                gc.fillText(token.getType().substring(0, 1), drawX + tileSize / 2 - 4, drawY + tileSize / 2 + 6);
+                gc.fillText(token.getType().substring(0, 1), drawX + drawWidth / 2 - 4, drawY + drawWidth / 2 + 6);
             }
         }
 
