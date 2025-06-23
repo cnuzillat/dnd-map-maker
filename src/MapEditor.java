@@ -29,9 +29,15 @@ public class MapEditor extends Application {
         }
 
         mapGrid.setOnMouseClicked(e -> {
-            int x = (int)(e.getX() / mapGrid.getTileSize());
-            int y = (int)(e.getY() / mapGrid.getTileSize());
-            mapGrid.setTile(x, y, selectedTile);
+            double adjustedX = (e.getX() - mapGrid.getOffsetX()) / mapGrid.getZoom();
+            double adjustedY = (e.getY() - mapGrid.getOffsetY()) / mapGrid.getZoom();
+
+            int x = (int) (adjustedX / mapGrid.getTileSize());
+            int y = (int) (adjustedY / mapGrid.getTileSize());
+
+            if (x >= 0 && x < 20 && y >= 0 && y < 20) {
+                mapGrid.setTile(x, y, selectedTile);
+            }
         });
 
         Region spacer = new Region();
