@@ -76,10 +76,10 @@ public class MapEditor extends Application {
             }
         });
 
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
+        Region spacerOne = new Region();
+        HBox.setHgrow(spacerOne, Priority.ALWAYS);
 
-        toolbar.getItems().add(spacer);
+        toolbar.getItems().add(spacerOne);
 
         Button saveButton = new Button("Save");
         saveButton.setOnAction(e -> {
@@ -89,7 +89,8 @@ public class MapEditor extends Application {
             File file = fileChooser.showSaveDialog(stage);
             if (file != null) {
                 try {
-                    MapIO.saveMap(mapGrid.getTiles(), file);
+                    Tile[][] tileArray = mapGrid.toArray(20, 20);
+                    MapIO.saveMap(tileArray, file);
                 } catch (IOException ex) {
                     ex.printStackTrace();
                 }
@@ -112,18 +113,33 @@ public class MapEditor extends Application {
             }
         });
 
-        toolbar.getItems().addAll(saveButton, loadButton);
-
         ToggleButton tokenToggle = new ToggleButton("Token Mode");
         tokenToggle.setOnAction(e -> tokenMode = tokenToggle.isSelected());
         toolbar.getItems().add(tokenToggle);
+
+        Region spacerTwo = new Region();
+        HBox.setHgrow(spacerTwo, Priority.ALWAYS);
+
+        toolbar.getItems().add(spacerTwo);
+
+        toolbar.getItems().addAll(saveButton, loadButton);
 
         BorderPane root = new BorderPane();
         root.setTop(toolbar);
         root.setCenter(mapGrid);
 
         stage.setTitle("D&D Map Maker");
-        stage.setScene(new Scene(root));
+        Scene scene = new Scene(root);
+        stage.setScene(scene);
+
+        scene.widthProperty().addListener((obs, oldVal, newVal) -> {
+            mapGrid.resizeCanvas(scene.getWidth(), scene.getHeight() - toolbar.getHeight());
+        });
+
+        scene.heightProperty().addListener((obs, oldVal, newVal) -> {
+            mapGrid.resizeCanvas(scene.getWidth(), scene.getHeight() - toolbar.getHeight());
+        });
+
         stage.show();
     }
 
