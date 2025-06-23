@@ -25,11 +25,6 @@ public class MapGrid extends Canvas {
     private double offsetX = 0;
     private double offsetY = 0;
 
-    private double mouseDragStartX = 0;
-    private double mouseDragStartY = 0;
-    private double offsetStartX = 0;
-    private double offsetStartY = 0;
-
     private Token draggingToken = null;
     private double dragOffsetX = 0;
     private double dragOffsetY = 0;
@@ -82,10 +77,17 @@ public class MapGrid extends Canvas {
                         break;
                     }
                 }
-            } else if (e.isSecondaryButtonDown()) {
+            }
+            else if (e.isSecondaryButtonDown()) {
                 Token toRemove = null;
                 for (Token token : tokens) {
-                    if (token.getX() == gridX && token.getY() == gridY) {
+                    int tx = token.getX();
+                    int ty = token.getY();
+                    int tw = token.getWidth();
+                    int th = token.getHeight();
+
+                    if (gridX >= tx && gridX < tx + tw &&
+                            gridY >= ty && gridY < ty + th) {
                         toRemove = token;
                         break;
                     }
