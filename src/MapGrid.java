@@ -14,12 +14,12 @@ import java.util.List;
 import java.util.Map;
 
 public class MapGrid extends Canvas {
-    private final int rows = 20;
-    private final int cols = 20;
     private final int tileSize = 32;
     private Map<Point, Tile> tiles = new HashMap<>();
 
     private final List<Token> tokens = new ArrayList<>();
+
+    private int selectionStartX, selectionStartY;
 
     private double zoom = 1.0;
     private double offsetX = 0;
@@ -30,15 +30,11 @@ public class MapGrid extends Canvas {
     private double dragOffsetY = 0;
 
     public MapGrid() {
-        setWidth(cols * tileSize);
-        setHeight(rows * tileSize);
-
         widthProperty().addListener((obs, oldVal, newVal) -> draw());
         heightProperty().addListener((obs, oldVal, newVal) -> draw());
 
-        for (int y = 0; y < rows; y++)
-            for (int x = 0; x < cols; x++)
-                tiles.put(new Point(x, y), new Tile(TileType.FLOOR));
+        setWidth(800);
+        setHeight(600);
 
         draw();
 
@@ -68,6 +64,21 @@ public class MapGrid extends Canvas {
             int gridX = (int)(adjustedX / tileSize);
             int gridY = (int)(adjustedY / tileSize);
 
+            for (Token token : tokens) {
+                double tx = token.getX();
+                double ty = token.getY();
+                double tw = token.getWidth() * tileSize;
+                double th = token.getHeight() * tileSize;
+
+                if (adjustedX >= tx && adjustedX <= tx + tw &&
+                        adjustedY >= ty && adjustedY <= ty + th) {
+                    draggingToken = token;
+                    dragOffsetX = adjustedX - tx;
+                    dragOffsetY = adjustedY - ty;
+                    break;
+                }
+            }
+
             if (e.isPrimaryButtonDown()) {
                 for (Token token : tokens) {
                     if (token.getX() == gridX && token.getY() == gridY) {
@@ -81,8 +92,8 @@ public class MapGrid extends Canvas {
             else if (e.isSecondaryButtonDown()) {
                 Token toRemove = null;
                 for (Token token : tokens) {
-                    int tx = token.getX();
-                    int ty = token.getY();
+                    double tx = token.getX();
+                    double ty = token.getY();
                     int tw = token.getWidth();
                     int th = token.getHeight();
 
@@ -105,10 +116,10 @@ public class MapGrid extends Canvas {
                 double adjustedX = (e.getX() - offsetX) / zoom;
                 double adjustedY = (e.getY() - offsetY) / zoom;
 
-                int newGridX = (int)((adjustedX - dragOffsetX) / tileSize);
-                int newGridY = (int)((adjustedY - dragOffsetY) / tileSize);
+                double newX = adjustedX - dragOffsetX;
+                double newY = adjustedY - dragOffsetY;
 
-                draggingToken.setPosition(newGridX, newGridY);
+                draggingToken.setPosition(newX, newY);
                 draw();
             }
         });
@@ -120,10 +131,8 @@ public class MapGrid extends Canvas {
     }
 
     public void setTile(int x, int y, TileType type) {
-        if (x >= 0 && x < cols && y >= 0 && y < rows) {
-            tiles.put(new Point(x, y), new Tile(type));
-            draw();
-        }
+        tiles.put(new Point(x, y), new Tile(type));
+        draw();
     }
 
     public int getTileSize() {
@@ -177,8 +186,8 @@ public class MapGrid extends Canvas {
 
         gc.setFont(Font.font("Arial", FontWeight.BOLD, 16));
         for (Token token : tokens) {
-            double drawX = token.getX() * tileSize;
-            double drawY = token.getY() * tileSize;
+            double drawX = token.getX();
+            double drawY = token.getY();
 
             double drawWidth = token.getWidth() * tileSize;
             double drawHeight = token.getHeight() * tileSize;
@@ -225,14 +234,32 @@ public class MapGrid extends Canvas {
         return zoom;
     }
 
-    public Tile[][] toArray(int width, int height) {
+    public Tile[][] toArray() {
+        if (tiles.isEmpty()) return new Tile[0][0];
+
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
+
+        for (Point p : tiles.keySet()) {
+            minX = Math.min(minX, p.x);
+            minY = Math.min(minY, p.y);
+            maxX = Math.max(maxX, p.x);
+            maxY = Math.max(maxY, p.y);
+        }
+
+        int width = maxX - minX + 1;
+        int height = maxY - minY + 1;
+
         Tile[][] array = new Tile[height][width];
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                Point p = new Point(x, y);
+                Point p = new Point(minX + x, minY + y);
                 array[y][x] = tiles.getOrDefault(p, new Tile(TileType.FLOOR));
             }
         }
+
         return array;
     }
 
@@ -240,5 +267,30 @@ public class MapGrid extends Canvas {
         setWidth(width);
         setHeight(height);
         draw();
+    }
+
+    public void setSelectionStart(double x, double y) {
+        double adjustedX = (x - offsetX) / zoom;
+        double adjustedY = (y - offsetY) / zoom;
+        selectionStartX = (int)(adjustedX / tileSize);
+        selectionStartY = (int)(adjustedY / tileSize);
+    }
+
+    public void setSelectionEndAndFill(double x, double y, TileType type) {
+        double adjustedX = (x - offsetX) / zoom;
+        double adjustedY = (y - offsetY) / zoom;
+        int endX = (int)(adjustedX / tileSize);
+        int endY = (int)(adjustedY / tileSize);
+
+        int startX = Math.min(selectionStartX, endX);
+        int endXFinal = Math.max(selectionStartX, endX);
+        int startY = Math.min(selectionStartY, endY);
+        int endYFinal = Math.max(selectionStartY, endY);
+
+        for (int yGrid = startY; yGrid <= endYFinal; yGrid++) {
+            for (int xGrid = startX; xGrid <= endXFinal; xGrid++) {
+                setTile(xGrid, yGrid, type);
+            }
+        }
     }
 }

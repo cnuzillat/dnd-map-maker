@@ -25,6 +25,7 @@ public class MapEditor extends Application {
     @Override
     public void start(Stage stage) {
         MapGrid mapGrid = new MapGrid();
+        updateMouseHandlers(mapGrid, stage);
 
         ToolBar toolbar = new ToolBar();
         for (TileType type : TileType.values()) {
@@ -32,83 +33,6 @@ public class MapEditor extends Application {
             button.setOnAction(e -> selectedTile = type);
             toolbar.getItems().add(button);
         }
-
-        mapGrid.setOnMouseClicked(e -> {
-            double adjustedX = (e.getX() - mapGrid.getOffsetX()) / mapGrid.getZoom();
-            double adjustedY = (e.getY() - mapGrid.getOffsetY()) / mapGrid.getZoom();
-            int x = (int) (adjustedX / mapGrid.getTileSize());
-            int y = (int) (adjustedY / mapGrid.getTileSize());
-
-            if (x >= 0 && x < 20 && y >= 0 && y < 20) {
-                if (tokenMode) {
-                    TextInputDialog nameDialog = new TextInputDialog("TokenName");
-                    nameDialog.setTitle("Token Name");
-                    nameDialog.setHeaderText("Enter a name for your token:");
-                    nameDialog.setContentText("Name:");
-
-                    var result = nameDialog.showAndWait();
-                    if (result.isPresent() && !result.get().isBlank()) {
-                        String tokenName = result.get();
-
-                        TextInputDialog widthDialog = new TextInputDialog("1");
-                        widthDialog.setTitle("Token Width");
-                        widthDialog.setHeaderText("Enter token width (in tiles):");
-                        widthDialog.setContentText("Width:");
-
-                        var widthResult = widthDialog.showAndWait();
-                        int width = 1;
-                        if (widthResult.isPresent()) {
-                            try {
-                                width = Integer.parseInt(widthResult.get());
-                                if (width < 1) width = 1;
-                            } catch (NumberFormatException e1) {
-                                width = 1;
-                            }
-                        }
-
-                        TextInputDialog heightDialog = new TextInputDialog("1");
-                        heightDialog.setTitle("Token Height");
-                        heightDialog.setHeaderText("Enter token height (in tiles):");
-                        heightDialog.setContentText("Height:");
-
-                        var heightResult = heightDialog.showAndWait();
-                        int height = 1;
-                        if (heightResult.isPresent()) {
-                            try {
-                                height = Integer.parseInt(heightResult.get());
-                                if (height < 1) height = 1;
-                            } catch (NumberFormatException e2) {
-                                height = 1;
-                            }
-                        }
-
-                        FileChooser fileChooser = new FileChooser();
-                        fileChooser.setTitle("Select Token Image");
-                        fileChooser.getExtensionFilters().addAll(
-                                new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.gif")
-                        );
-
-                        File file = fileChooser.showOpenDialog(stage);
-                        if (file != null && file.exists()) {
-                            Image tokenImage = new Image(file.toURI().toString());
-
-                            Token token = new Token(tokenName, x, y, tokenImage);
-                            token.setWidth(width);
-                            token.setHeight(height);
-                            mapGrid.addToken(token);
-                        } else {
-                            Alert alert = new Alert(Alert.AlertType.ERROR);
-                            alert.setTitle("Image Error");
-                            alert.setHeaderText("No image selected");
-                            alert.setContentText("Token image not selected, token not placed.");
-                            alert.showAndWait();
-                        }
-                    }
-                } else {
-                    mapGrid.setTile(x, y, selectedTile);
-                }
-            }
-        });
 
         Region spacerOne = new Region();
         HBox.setHgrow(spacerOne, Priority.ALWAYS);
@@ -119,11 +43,12 @@ public class MapEditor extends Application {
         saveButton.setOnAction(e -> {
             FileChooser fileChooser = new FileChooser();
             fileChooser.setTitle("Save Map");
-            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON Files", "*.json"));
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON Files",
+                    "*.json"));
             File file = fileChooser.showSaveDialog(stage);
             if (file != null) {
                 try {
-                    Tile[][] tileArray = mapGrid.toArray(20, 20);
+                    Tile[][] tileArray = mapGrid.toArray();
                     MapIO.saveMap(tileArray, file);
                 } catch (IOException ex) {
                     ex.printStackTrace();
@@ -148,7 +73,10 @@ public class MapEditor extends Application {
         });
 
         ToggleButton tokenToggle = new ToggleButton("Token Mode");
-        tokenToggle.setOnAction(e -> tokenMode = tokenToggle.isSelected());
+        tokenToggle.setOnAction(e -> {
+            tokenMode = tokenToggle.isSelected();
+            updateMouseHandlers(mapGrid, stage);
+        });
         toolbar.getItems().add(tokenToggle);
 
         Region spacerTwo = new Region();
@@ -175,6 +103,102 @@ public class MapEditor extends Application {
         });
 
         stage.show();
+    }
+
+    private void updateMouseHandlers(MapGrid mapGrid, Stage stage) {
+        if (tokenMode) {
+            mapGrid.setOnMouseClicked(e -> {
+                double adjustedX = (e.getX() - mapGrid.getOffsetX()) / mapGrid.getZoom();
+                double adjustedY = (e.getY() - mapGrid.getOffsetY()) / mapGrid.getZoom();
+                int x = (int) (adjustedX / mapGrid.getTileSize());
+                int y = (int) (adjustedY / mapGrid.getTileSize());
+                TextInputDialog nameDialog = new TextInputDialog("TokenName");
+                nameDialog.setTitle("Token Name");
+                nameDialog.setHeaderText("Enter a name for your token:");
+                nameDialog.setContentText("Name:");
+
+                var result = nameDialog.showAndWait();
+                if (result.isPresent() && !result.get().isBlank()) {
+                    String tokenName = result.get();
+
+                    TextInputDialog widthDialog = new TextInputDialog("1");
+                    widthDialog.setTitle("Token Width");
+                    widthDialog.setHeaderText("Enter token width (in tiles):");
+                    widthDialog.setContentText("Width:");
+
+                    var widthResult = widthDialog.showAndWait();
+                    int width = 1;
+                    if (widthResult.isPresent()) {
+                        try {
+                            width = Integer.parseInt(widthResult.get());
+                            if (width < 1) width = 1;
+                        } catch (NumberFormatException e1) {
+                            width = 1;
+                        }
+                    }
+
+                    TextInputDialog heightDialog = new TextInputDialog("1");
+                    heightDialog.setTitle("Token Height");
+                    heightDialog.setHeaderText("Enter token height (in tiles):");
+                    heightDialog.setContentText("Height:");
+
+                    var heightResult = heightDialog.showAndWait();
+                    int height = 1;
+                    if (heightResult.isPresent()) {
+                        try {
+                            height = Integer.parseInt(heightResult.get());
+                            if (height < 1) height = 1;
+                        } catch (NumberFormatException e2) {
+                            height = 1;
+                        }
+                    }
+
+                    FileChooser fileChooser = new FileChooser();
+                    fileChooser.setTitle("Select Token Image");
+                    fileChooser.getExtensionFilters().addAll(
+                            new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.gif")
+                    );
+
+                    File file = fileChooser.showOpenDialog(stage);
+                    if (file != null && file.exists()) {
+                        Image tokenImage = new Image(file.toURI().toString());
+
+                        Token token = new Token(tokenName, x * mapGrid.getTileSize(), y * mapGrid.getTileSize(),
+                                tokenImage);
+                        token.setWidth(width);
+                        token.setHeight(height);
+                        mapGrid.addToken(token);
+                    }
+                    else {
+                        Alert alert = new Alert(Alert.AlertType.ERROR);
+                        alert.setTitle("Image Error");
+                        alert.setHeaderText("No image selected");
+                        alert.setContentText("Token image not selected, token not placed.");
+                        alert.showAndWait();
+                    }
+                }
+            });
+
+            mapGrid.setOnMousePressed(null);
+            mapGrid.setOnMouseDragged(null);
+            mapGrid.setOnMouseReleased(null);
+
+        }
+        else {
+            mapGrid.setOnMouseClicked(null);
+
+            mapGrid.setOnMouseDragged(e -> {
+                if (e.isPrimaryButtonDown()) {
+                    double adjustedX = (e.getX() - mapGrid.getOffsetX()) / mapGrid.getZoom();
+                    double adjustedY = (e.getY() - mapGrid.getOffsetY()) / mapGrid.getZoom();
+
+                    int x = (int)(adjustedX / mapGrid.getTileSize());
+                    int y = (int)(adjustedY / mapGrid.getTileSize());
+
+                    mapGrid.setTile(x, y, selectedTile);
+                }
+            });
+        }
     }
 
     public static void main(String[] args) {

@@ -4,12 +4,12 @@ import javafx.scene.image.Image;
 
 public class Token {
     private String type;
-    private int x, y;
+    private double x, y;
     private int width = 1;
     private int height = 1;
     private Image image;
 
-    public Token(String type, int x, int y, Image image) {
+    public Token(String type, double x, double y, Image image) {
         this.type = type;
         this.x = x;
         this.y = y;
@@ -20,11 +20,11 @@ public class Token {
         return type;
     }
 
-    public int getX() {
+    public double getX() {
         return x;
     }
 
-    public int getY() {
+    public double getY() {
         return y;
     }
 
@@ -47,7 +47,7 @@ public class Token {
         this.height = height;
     }
 
-    public void setPosition(int x, int y) {
+    public void setPosition(double x, double y) {
         this.x = x;
         this.y = y;
     }
