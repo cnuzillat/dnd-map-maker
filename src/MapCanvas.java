@@ -151,7 +151,7 @@ public class MapCanvas extends Canvas {
         double y = Math.min(dragStartY, dragEndY);
         double width = Math.abs(dragEndX - dragStartX);
         double height = Math.abs(dragEndY - dragStartY);
-
+        
         if (width < 0.1) width = 0.1;
         if (height < 0.1) height = 0.1;
         
@@ -161,6 +161,20 @@ public class MapCanvas extends Canvas {
         }
         
         draw();
+    }
+    
+    private List<Wall.WallSegment> createShapeOutline() {
+        if (walls.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Wall.WallSegment> outline = new ArrayList<>();
+        for (Wall wall : walls) {
+            outline.addAll(wall.getOutlineSegments());
+        }
+        
+        System.out.println("Created outline with " + outline.size() + " segments from " + walls.size() + " walls");
+        return outline;
     }
     
     private void placeToken(Point gridPos) {
@@ -250,15 +264,18 @@ public class MapCanvas extends Canvas {
             }
         }
 
-        gc.setStroke(Color.BLACK);
-        gc.setLineWidth(2);
-        for (Wall wall : walls) {
-            double screenX = wall.getX() * GRID_SIZE;
-            double screenY = wall.getY() * GRID_SIZE;
-            double screenWidth = wall.getWidth() * GRID_SIZE;
-            double screenHeight = wall.getHeight() * GRID_SIZE;
-            
-            gc.strokeRect(screenX, screenY, screenWidth, screenHeight);
+        if (!walls.isEmpty()) {
+            List<Wall.WallSegment> outlineSegments = Wall.getMergedOutline(walls);
+
+            gc.setStroke(Color.BLACK);
+            gc.setLineWidth(2);
+            for (Wall.WallSegment segment : outlineSegments) {
+                double screenX1 = segment.x1 * GRID_SIZE;
+                double screenY1 = segment.y1 * GRID_SIZE;
+                double screenX2 = segment.x2 * GRID_SIZE;
+                double screenY2 = segment.y2 * GRID_SIZE;
+                gc.strokeLine(screenX1, screenY1, screenX2, screenY2);
+            }
         }
 
         for (Token token : tokens) {
@@ -278,7 +295,8 @@ public class MapCanvas extends Canvas {
                 if (token.hasCustomImage()) {
                     Image image = token.getCustomImage();
                     gc.drawImage(image, screenX + 2, screenY + 2, tokenSize - 4, tokenSize - 4);
-                } else {
+                }
+                else {
                     gc.setFill(token.getType().getColor());
                     gc.fillOval(screenX + 2, screenY + 2, tokenSize - 4, tokenSize - 4);
 
@@ -302,7 +320,7 @@ public class MapCanvas extends Canvas {
             double width = Math.abs(dragEndX - dragStartX) * GRID_SIZE;
             double height = Math.abs(dragEndY - dragStartY) * GRID_SIZE;
             
-            gc.setStroke(Color.rgb(0, 0, 255, 0.7)); // Semi-transparent blue
+            gc.setStroke(Color.rgb(0, 0, 255, 0.7));
             gc.setLineWidth(2);
             gc.strokeRect(x, y, width, height);
         }
@@ -390,7 +408,7 @@ public class MapCanvas extends Canvas {
         tokens = new ArrayList<>(newTokens);
         draw();
     }
-
+    
     private static class MapState {
         List<Wall> walls;
         List<Token> tokens;
@@ -399,5 +417,159 @@ public class MapCanvas extends Canvas {
             this.walls = walls;
             this.tokens = tokens;
         }
+    }
+
+    private List<Wall.WallSegment> findOuterBoundary() {
+        if (walls.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        List<Wall.WallSegment> allEdges = new ArrayList<>();
+        List<Wall.WallSegment> outerEdges = new ArrayList<>();
+
+        for (Wall wall : walls) {
+            allEdges.addAll(wall.getOutlineSegments());
+        }
+
+        for (Wall.WallSegment edge : allEdges) {
+            boolean isInternal = false;
+
+            int containingWalls = 0;
+            for (Wall wall : walls) {
+                if (isEdgeContainedInWall(edge, wall)) {
+                    containingWalls++;
+                }
+            }
+
+            if (containingWalls > 1) {
+                isInternal = true;
+            }
+
+            if (!isInternal) {
+                outerEdges.add(edge);
+            }
+        }
+
+        return mergeAdjacentEdges(outerEdges);
+    }
+    
+    private boolean isEdgeContainedInWall(Wall.WallSegment edge, Wall wall) {
+        double wallLeft = wall.getLeft();
+        double wallRight = wall.getRight();
+        double wallTop = wall.getTop();
+        double wallBottom = wall.getBottom();
+
+        if (edge.isHorizontal()) {
+            return edge.y1 >= wallTop && edge.y1 < wallBottom &&
+                   edge.x1 >= wallLeft && edge.x2 <= wallRight;
+        }
+        else if (edge.isVertical()) {
+            return edge.x1 >= wallLeft && edge.x1 < wallRight &&
+                   edge.y1 >= wallTop && edge.y2 <= wallBottom;
+        }
+        
+        return false;
+    }
+    
+    private List<Wall.WallSegment> mergeAdjacentEdges(List<Wall.WallSegment> edges) {
+        if (edges.size() <= 1) return edges;
+        
+        List<Wall.WallSegment> merged = new ArrayList<>();
+        boolean[] used = new boolean[edges.size()];
+        
+        for (int i = 0; i < edges.size(); i++) {
+            if (used[i]) continue;
+            
+            Wall.WallSegment current = edges.get(i);
+            used[i] = true;
+
+            boolean extended;
+            do {
+                extended = false;
+                for (int j = 0; j < edges.size(); j++) {
+                    if (used[j]) continue;
+                    
+                    Wall.WallSegment next = edges.get(j);
+
+                    if (current.isHorizontal() && next.isHorizontal() && 
+                        Math.abs(current.y1 - next.y1) < 0.01 &&
+                        Math.abs(current.x2 - next.x1) < 0.01) {
+                        current = new Wall.WallSegment(current.x1, current.y1, next.x2, next.y2);
+                        used[j] = true;
+                        extended = true;
+                    }
+                    else if (current.isVertical() && next.isVertical() &&
+                               Math.abs(current.x1 - next.x1) < 0.01 &&
+                               Math.abs(current.y2 - next.y1) < 0.01) {
+                        current = new Wall.WallSegment(current.x1, current.y1, next.x2, next.y2);
+                        used[j] = true;
+                        extended = true;
+                    }
+                }
+            } while (extended);
+            
+            merged.add(current);
+        }
+        
+        return merged;
+    }
+
+    private boolean isEdgeInternal(Wall.WallSegment segment, Wall sourceWall) {
+        for (Wall otherWall : walls) {
+            if (otherWall == sourceWall) continue;
+
+            double wallLeft = otherWall.getLeft();
+            double wallRight = otherWall.getRight();
+            double wallTop = otherWall.getTop();
+            double wallBottom = otherWall.getBottom();
+
+            if (segment.isHorizontal()) {
+                if (segment.y1 >= wallTop && segment.y1 < wallBottom &&
+                    segment.x1 >= wallLeft && segment.x2 <= wallRight) {
+                    return true;
+                }
+            }
+            else if (segment.isVertical()) {
+                if (segment.x1 >= wallLeft && segment.x1 < wallRight &&
+                    segment.y1 >= wallTop && segment.y2 <= wallBottom) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+
+    private List<Wall.WallSegment> getUniqueSegments(List<Wall.WallSegment> segments) {
+        List<Wall.WallSegment> unique = new ArrayList<>();
+        boolean[] used = new boolean[segments.size()];
+        for (int i = 0; i < segments.size(); i++) {
+            if (used[i]) continue;
+            Wall.WallSegment seg1 = segments.get(i);
+            boolean foundPair = false;
+            for (int j = i + 1; j < segments.size(); j++) {
+                if (used[j]) continue;
+                Wall.WallSegment seg2 = segments.get(j);
+                if (segmentsEqual(seg1, seg2)) {
+                    used[i] = true;
+                    used[j] = true;
+                    foundPair = true;
+                    break;
+                }
+            }
+            if (!foundPair) {
+                unique.add(seg1);
+            }
+        }
+        return unique;
+    }
+
+    private boolean segmentsEqual(Wall.WallSegment a, Wall.WallSegment b) {
+        return (almostEqual(a.x1, b.x1) && almostEqual(a.y1, b.y1) && almostEqual(a.x2, b.x2) && almostEqual(a.y2, b.y2)) ||
+               (almostEqual(a.x1, b.x2) && almostEqual(a.y1, b.y2) && almostEqual(a.x2, b.x1) && almostEqual(a.y2, b.y1));
+    }
+
+    private boolean almostEqual(double a, double b) {
+        return Math.abs(a - b) < 1e-6;
     }
 } 

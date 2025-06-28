@@ -68,11 +68,10 @@ public class DndMapMaker extends Application {
         Button redoButton = new Button("Redo");
         redoButton.setOnAction(e -> mapCanvas.redo());
         toolbar.getItems().add(redoButton);
-
         Button saveButton = new Button("Save");
         saveButton.setOnAction(e -> saveMap(stage));
         toolbar.getItems().add(saveButton);
-        
+
         Button loadButton = new Button("Load");
         loadButton.setOnAction(e -> loadMap(stage));
         toolbar.getItems().add(loadButton);
