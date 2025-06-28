@@ -16,17 +16,20 @@ import java.io.File;
 
 public class TokenEditor {
     private Token token;
+    private MapCanvas mapCanvas;
     private boolean confirmed = false;
 
     private TextField nameField;
     private ComboBox<Token.Type> typeCombo;
+    private ComboBox<String> layerCombo;
     private Spinner<Integer> sizeSpinner;
     private ImageView imagePreview;
     private Label imagePathLabel;
     private String selectedImagePath;
     
-    public TokenEditor(Token token) {
+    public TokenEditor(Token token, MapCanvas mapCanvas) {
         this.token = token;
+        this.mapCanvas = mapCanvas;
     }
     
     public boolean showAndWait() {
@@ -45,6 +48,11 @@ public class TokenEditor {
         typeCombo = new ComboBox<>();
         typeCombo.getItems().addAll(Token.Type.values());
         typeCombo.setValue(token.getType());
+
+        Label layerLabel = new Label("Layer:");
+        layerCombo = new ComboBox<>();
+        layerCombo.getItems().addAll(mapCanvas.getLayerOrder());
+        layerCombo.setValue(token.getLayerCategory());
 
         Label sizeLabel = new Label("Size (grid squares):");
         sizeSpinner = new Spinner<>(1, 10, token.getSize());
@@ -97,12 +105,14 @@ public class TokenEditor {
         grid.add(nameField, 1, 0);
         grid.add(typeLabel, 0, 1);
         grid.add(typeCombo, 1, 1);
-        grid.add(sizeLabel, 0, 2);
-        grid.add(sizeSpinner, 1, 2);
-        grid.add(imageLabel, 0, 3);
-        grid.add(imageBox, 1, 3);
-        grid.add(imagePreview, 0, 4);
-        grid.add(imagePathLabel, 1, 4);
+        grid.add(layerLabel, 0, 2);
+        grid.add(layerCombo, 1, 2);
+        grid.add(sizeLabel, 0, 3);
+        grid.add(sizeSpinner, 1, 3);
+        grid.add(imageLabel, 0, 4);
+        grid.add(imageBox, 1, 4);
+        grid.add(imagePreview, 0, 5);
+        grid.add(imagePathLabel, 1, 5);
         
         root.getChildren().addAll(grid, buttonBox);
         
@@ -148,6 +158,7 @@ public class TokenEditor {
     private void saveToken() {
         token.setName(nameField.getText());
         token.setType(typeCombo.getValue());
+        token.setLayerCategory(layerCombo.getValue());
         token.setSize(sizeSpinner.getValue());
         token.setImagePath(selectedImagePath);
     }

@@ -11,12 +11,15 @@ import java.util.Map;
 import java.util.Stack;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 public class MapCanvas extends Canvas {
     private static final int GRID_SIZE = 32;
     
     private List<Wall> walls = new ArrayList<>();
     private List<Token> tokens = new ArrayList<>();
+    private List<Wall> blackOverlays = new ArrayList<>();
     private Mode currentMode = Mode.WALL;
     private Token.Type selectedTokenType = Token.Type.PLAYER;
 
@@ -29,18 +32,20 @@ public class MapCanvas extends Canvas {
     private double dragEndX, dragEndY;
     private Token selectedToken = null;
     private boolean isDraggingToken = false;
+    private List<String> layerOrder = new ArrayList<>();
+    private Set<String> visibleLayers = new HashSet<>();
+    private String currentLayerCategory = "Default";
 
     private Stack<MapState> undoStack = new Stack<>();
     private Stack<MapState> redoStack = new Stack<>();
     
     public enum Mode {
-        WALL, ERASER, TOKEN, SELECT
+        WALL, ERASER, TOKEN, SELECT, BLACK_OVERLAY, LAYER
     }
     
     public MapCanvas() {
-        setWidth(1200);
-        setHeight(800);
-        
+        layerOrder.add("Default");
+        visibleLayers.add("Default");
         setupMouseHandlers();
         draw();
     }
@@ -74,6 +79,15 @@ public class MapCanvas extends Canvas {
                         isDraggingToken = true;
                     }
                 }
+                else if (currentMode == Mode.LAYER) {
+                    Point gridPos = screenToGrid(e.getX(), e.getY());
+                    Token clickedToken = getTokenAt(gridPos);
+                    if (clickedToken != null) {
+                        clickedToken.setLayerCategory(currentLayerCategory);
+                        System.out.println("Set " + clickedToken.getName() + " to layer: " + currentLayerCategory);
+                        draw();
+                    }
+                }
                 else {
                     double worldX = (e.getX() - offsetX) / zoom;
                     double worldY = (e.getY() - offsetY) / zoom;
@@ -96,7 +110,7 @@ public class MapCanvas extends Canvas {
 
                 double gridX = worldX / GRID_SIZE;
                 double gridY = worldY / GRID_SIZE;
-                
+
                 selectedToken.setExactPosition(gridX, gridY);
                 draw();
             }
@@ -158,6 +172,9 @@ public class MapCanvas extends Canvas {
         if (currentMode == Mode.WALL) {
             Wall newWall = new Wall(x, y, width, height);
             walls.add(newWall);
+        } else if (currentMode == Mode.BLACK_OVERLAY) {
+            Wall newOverlay = new Wall(x, y, width, height);
+            blackOverlays.add(newOverlay);
         }
         
         draw();
@@ -182,6 +199,9 @@ public class MapCanvas extends Canvas {
         
         String tokenName = selectedTokenType.getDisplayName() + " " + (tokens.size() + 1);
         Token newToken = new Token(gridPos, selectedTokenType, tokenName, 1);
+
+        newToken.setLayerCategory(currentLayerCategory);
+        
         tokens.add(newToken);
 
         editToken(newToken);
@@ -190,7 +210,7 @@ public class MapCanvas extends Canvas {
     }
     
     private void editToken(Token token) {
-        TokenEditor editor = new TokenEditor(token);
+        TokenEditor editor = new TokenEditor(token, this);
         if (editor.showAndWait()) {
             draw();
         }
@@ -211,31 +231,33 @@ public class MapCanvas extends Canvas {
     }
     
     private void saveState() {
-        MapState currentState = new MapState(new ArrayList<>(walls), new ArrayList<>(tokens));
+        MapState currentState = new MapState(new ArrayList<>(walls), new ArrayList<>(tokens), new ArrayList<>(blackOverlays));
         undoStack.push(currentState);
         redoStack.clear();
     }
     
     public void undo() {
         if (!undoStack.isEmpty()) {
-            MapState currentState = new MapState(new ArrayList<>(walls), new ArrayList<>(tokens));
+            MapState currentState = new MapState(new ArrayList<>(walls), new ArrayList<>(tokens), new ArrayList<>(blackOverlays));
             redoStack.push(currentState);
             
             MapState previousState = undoStack.pop();
             walls = previousState.walls;
             tokens = previousState.tokens;
+            blackOverlays = previousState.blackOverlays;
             draw();
         }
     }
     
     public void redo() {
         if (!redoStack.isEmpty()) {
-            MapState currentState = new MapState(new ArrayList<>(walls), new ArrayList<>(tokens));
+            MapState currentState = new MapState(new ArrayList<>(walls), new ArrayList<>(tokens), new ArrayList<>(blackOverlays));
             undoStack.push(currentState);
             
             MapState nextState = redoStack.pop();
             walls = nextState.walls;
             tokens = nextState.tokens;
+            blackOverlays = nextState.blackOverlays;
             draw();
         }
     }
@@ -278,39 +300,66 @@ public class MapCanvas extends Canvas {
             }
         }
 
-        for (Token token : tokens) {
-            double exactX = token.getExactX();
-            double exactY = token.getExactY();
-            int size = token.getSize();
+        for (Wall overlay : blackOverlays) {
+            double screenX = overlay.getX() * GRID_SIZE;
+            double screenY = overlay.getY() * GRID_SIZE;
+            double screenWidth = overlay.getWidth() * GRID_SIZE;
+            double screenHeight = overlay.getHeight() * GRID_SIZE;
+            
+            gc.setFill(Color.BLACK);
+            gc.fillRect(screenX, screenY, screenWidth, screenHeight);
+        }
 
-            double screenX = exactX * GRID_SIZE;
-            double screenY = exactY * GRID_SIZE;
-
-            Point gridPos = new Point((int)exactX, (int)exactY);
-            if (gridPos.x >= startX && gridPos.x < startX + tilesWide && 
-                gridPos.y >= startY && gridPos.y < startY + tilesHigh) {
-                
-                double tokenSize = size * GRID_SIZE;
-                
-                if (token.hasCustomImage()) {
-                    Image image = token.getCustomImage();
-                    gc.drawImage(image, screenX + 2, screenY + 2, tokenSize - 4, tokenSize - 4);
+        for (int i = layerOrder.size() - 1; i >= 0; i--) {
+            String layerName = layerOrder.get(i);
+            if (!visibleLayers.contains(layerName)) {
+            }
+            
+            for (Token token : tokens) {
+                if (!token.getLayerCategory().equals(layerName)) {
                 }
-                else {
-                    gc.setFill(token.getType().getColor());
-                    gc.fillOval(screenX + 2, screenY + 2, tokenSize - 4, tokenSize - 4);
+                
+                double exactX = token.getExactX();
+                double exactY = token.getExactY();
+                int size = token.getSize();
 
+                double screenX = exactX * GRID_SIZE;
+                double screenY = exactY * GRID_SIZE;
+
+                Point gridPos = new Point((int)exactX, (int)exactY);
+                if (gridPos.x >= startX && gridPos.x < startX + tilesWide && 
+                    gridPos.y >= startY && gridPos.y < startY + tilesHigh) {
+                    
+                    double tokenSize = size * GRID_SIZE;
+
+                    if (currentMode == Mode.LAYER) {
+                        if (token.isInLayer(currentLayerCategory)) {
+                            gc.setStroke(Color.BLUE);
+                            gc.setLineWidth(3);
+                            gc.strokeRect(screenX - 2, screenY - 2, tokenSize + 4, tokenSize + 4);
+                        }
+                    }
+                    
+                    if (token.hasCustomImage()) {
+                        Image image = token.getCustomImage();
+                        gc.drawImage(image, screenX + 2, screenY + 2, tokenSize - 4, tokenSize - 4);
+                    }
+                    else {
+                        gc.setFill(token.getType().getColor());
+                        gc.fillOval(screenX + 2, screenY + 2, tokenSize - 4, tokenSize - 4);
+
+                        gc.setStroke(Color.BLACK);
+                        gc.setLineWidth(2);
+                        gc.strokeOval(screenX + 2, screenY + 2, tokenSize - 4, tokenSize - 4);
+                    }
+
+                    gc.setFill(Color.WHITE);
                     gc.setStroke(Color.BLACK);
-                    gc.setLineWidth(2);
-                    gc.strokeOval(screenX + 2, screenY + 2, tokenSize - 4, tokenSize - 4);
+                    gc.setLineWidth(1);
+                    String name = token.getName();
+                    if (name.length() > 8) name = name.substring(0, 8);
+                    gc.fillText(name, screenX + 4, screenY + tokenSize - 4);
                 }
-
-                gc.setFill(Color.WHITE);
-                gc.setStroke(Color.BLACK);
-                gc.setLineWidth(1);
-                String name = token.getName();
-                if (name.length() > 8) name = name.substring(0, 8);
-                gc.fillText(name, screenX + 4, screenY + tokenSize - 4);
             }
         }
 
@@ -323,6 +372,17 @@ public class MapCanvas extends Canvas {
             gc.setStroke(Color.rgb(0, 0, 255, 0.7));
             gc.setLineWidth(2);
             gc.strokeRect(x, y, width, height);
+        } else if (isDragging && currentMode == Mode.BLACK_OVERLAY) {
+            double x = Math.min(dragStartX, dragEndX) * GRID_SIZE;
+            double y = Math.min(dragStartY, dragEndY) * GRID_SIZE;
+            double width = Math.abs(dragEndX - dragStartX) * GRID_SIZE;
+            double height = Math.abs(dragEndY - dragStartY) * GRID_SIZE;
+            
+            gc.setFill(Color.rgb(0, 0, 0, 0.5));
+            gc.fillRect(x, y, width, height);
+            gc.setStroke(Color.BLACK);
+            gc.setLineWidth(1);
+            gc.strokeRect(x, y, width, height);
         }
         
         gc.restore();
@@ -330,6 +390,7 @@ public class MapCanvas extends Canvas {
     
     public void setMode(Mode mode) {
         this.currentMode = mode;
+        draw();
     }
     
     public void setTokenType(Token.Type tokenType) {
@@ -409,13 +470,104 @@ public class MapCanvas extends Canvas {
         draw();
     }
     
+    public List<Wall> getBlackOverlays() {
+        return new ArrayList<>(blackOverlays);
+    }
+    
+    public void setBlackOverlays(List<Wall> newOverlays) {
+        blackOverlays = new ArrayList<>(newOverlays);
+        draw();
+    }
+
+    public void setVisibleLayers(Set<String> layers) {
+        visibleLayers = new HashSet<>(layers);
+        draw();
+    }
+    
+    public Set<String> getVisibleLayers() {
+        return new HashSet<>(visibleLayers);
+    }
+    
+    public void setCurrentLayerCategory(String category) {
+        this.currentLayerCategory = category != null ? category : "Default";
+        draw();
+    }
+    
+    public String getCurrentLayerCategory() {
+        return currentLayerCategory;
+    }
+    
+    public void toggleLayer(String layerName) {
+        if (visibleLayers.contains(layerName)) {
+            visibleLayers.remove(layerName);
+        } else {
+            visibleLayers.add(layerName);
+        }
+        draw();
+    }
+    
+    public Set<String> getAllLayerCategories() {
+        Set<String> categories = new HashSet<>();
+        for (Token token : tokens) {
+            categories.add(token.getLayerCategory());
+        }
+        return categories;
+    }
+
+    public List<String> getLayerOrder() {
+        return new ArrayList<>(layerOrder);
+    }
+    
+    public void addLayer(String layerName) {
+        if (!layerOrder.contains(layerName)) {
+            layerOrder.add(layerName);
+            visibleLayers.add(layerName);
+            draw();
+        }
+    }
+    
+    public void removeLayer(String layerName) {
+        if (layerOrder.size() > 1 && layerOrder.contains(layerName)) {
+            layerOrder.remove(layerName);
+            visibleLayers.remove(layerName);
+
+            for (Token token : tokens) {
+                if (token.getLayerCategory().equals(layerName)) {
+                    token.setLayerCategory("Default");
+                }
+            }
+            
+            draw();
+        }
+    }
+    
+    public void moveLayerUp(String layerName) {
+        int index = layerOrder.indexOf(layerName);
+        if (index > 0) {
+            layerOrder.remove(index);
+            layerOrder.add(index - 1, layerName);
+            draw();
+        }
+    }
+    
+    public void moveLayerDown(String layerName) {
+        int index = layerOrder.indexOf(layerName);
+        if (index >= 0 && index < layerOrder.size() - 1) {
+            layerOrder.remove(index);
+            layerOrder.add(index + 1, layerName);
+            draw();
+        }
+    }
+    
     private static class MapState {
         List<Wall> walls;
         List<Token> tokens;
+        List<Wall> blackOverlays;
         
-        MapState(List<Wall> walls, List<Token> tokens) {
+        MapState(List<Wall> walls, List<Token> tokens, List<Wall> blackOverlays) {
             this.walls = walls;
             this.tokens = tokens;
+            this.blackOverlays = blackOverlays;
         }
     }
 

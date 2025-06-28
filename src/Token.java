@@ -4,6 +4,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.image.Image;
 import java.awt.Point;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Token {
     public enum Type {
@@ -34,6 +36,7 @@ public class Token {
     private int size;
     private String imagePath;
     private Image customImage;
+    private String layerCategory = "Default";
     
     public Token(Point position, Type type, String name, int size) {
         this.position = position;
@@ -107,8 +110,24 @@ public class Token {
     public Image getCustomImage() { return customImage; }
     public boolean hasCustomImage() { return customImage != null; }
     
+    public void setCustomImage(Image image) {
+        this.customImage = image;
+    }
+    
     @Override
     public String toString() {
         return name + " (" + type.getDisplayName() + ")";
+    }
+
+    public String getLayerCategory() {
+        return layerCategory;
+    }
+    
+    public void setLayerCategory(String category) {
+        this.layerCategory = category != null ? category : "Default";
+    }
+    
+    public boolean isInLayer(String category) {
+        return layerCategory.equals(category);
     }
 } 

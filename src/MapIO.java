@@ -13,14 +13,19 @@ import java.util.ArrayList;
 public class MapIO {
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     
-    public static void saveMap(List<Wall> walls, List<Token> tokens, File file) throws IOException {
+    public static void saveMap(List<Wall> walls, List<Token> tokens, List<Wall> blackOverlays, File file) throws IOException {
         MapData mapData = new MapData();
         mapData.walls = walls;
         mapData.tokens = tokens;
+        mapData.blackOverlays = blackOverlays;
         
         try (FileWriter writer = new FileWriter(file)) {
             gson.toJson(mapData, writer);
         }
+    }
+    
+    public static void saveMap(List<Wall> walls, List<Token> tokens, File file) throws IOException {
+        saveMap(walls, tokens, new ArrayList<>(), file);
     }
     
     public static MapData loadMap(File file) throws IOException {
@@ -79,5 +84,6 @@ public class MapIO {
     public static class MapData {
         public List<Wall> walls;
         public List<Token> tokens;
+        public List<Wall> blackOverlays;
     }
 } 
